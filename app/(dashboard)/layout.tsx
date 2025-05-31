@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { use, useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
-import { CircleIcon, Home, LogOut } from 'lucide-react';
+import { CircleIcon, Home, LogOut, Users, Settings, BarChart3, Mail } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +33,7 @@ function UserMenu() {
     return (
       <>
         <Link
-          href="/pricing"
+          href="./pricing"
           className="text-sm font-medium text-gray-700 hover:text-gray-900"
         >
           Pricing
@@ -78,6 +78,40 @@ function UserMenu() {
   );
 }
 
+function Navigation() {
+  const navigationItems = [
+    { name: 'Dashboard', href: '/dashboard', icon: Home },
+    { name: 'Contacts', href: '/contacts', icon: Users },
+    { name: 'Campaigns', href: '/campaigns', icon: Mail },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Settings', href: '/settings', icon: Settings },
+  ];
+
+  return (
+    <nav className="border-b border-gray-200 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-center">
+          <div className="flex space-x-8">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200"
+                >
+                  <Icon className="h-4 w-4 mr-2" />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
 function Header() {
   return (
     <header className="border-b border-gray-200">
@@ -100,6 +134,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <section className="flex flex-col min-h-screen">
       <Header />
+      <Navigation />
       {children}
     </section>
   );
