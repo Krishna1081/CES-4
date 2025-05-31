@@ -1,0 +1,4 @@
+email,password,imapserver,imapport,imapsecurity,imapusername,smtpserver,smtpport,smtpsecurity,smtpusername,requireauth
+example@outlook.com,password123,outlook.office365.com,993,ssl,example@outlook.com,smtp.office365.com,587,tls,example@outlook.com,true
+example@gmail.com,password123,imap.gmail.com,993,ssl,example@gmail.com,smtp.gmail.com,587,tls,example@gmail.com,true
+example@yahoo.com,password123,imap.mail.yahoo.com,993,ssl,example@yahoo.com,smtp.mail.yahoo.com,587,tls,example@yahoo.com,true 

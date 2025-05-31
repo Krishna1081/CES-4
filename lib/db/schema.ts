@@ -23,6 +23,8 @@ export const users = pgTable('users', {
   lastName: varchar('last_name', { length: 100 }),
   timezone: varchar('timezone', { length: 100 }).default('UTC'),
   lastLoginAt: timestamp('last_login_at'),
+  emailVerified: boolean('email_verified').notNull().default(false),
+  emailVerificationToken: text('email_verification_token'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
@@ -202,6 +204,7 @@ export const sentEmails = pgTable('sent_emails', {
   body: text('body'),
   messageId: varchar('message_id', { length: 255 }).unique(),
   status: varchar('status', { length: 50 }).notNull(),
+  metadata: jsonb('metadata'),
 });
 
 export const emailEvents = pgTable('email_events', {
