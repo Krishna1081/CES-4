@@ -1,4 +1,6 @@
 import { Resend } from 'resend'
+import { ImapFlow } from 'imapflow'
+import nodemailer from 'nodemailer'
 
 // Handle missing API key during build
 const resend = process.env.RESEND_API_KEY 
@@ -7,6 +9,28 @@ const resend = process.env.RESEND_API_KEY
 
 // Resend free tier only allows sending to verified email addresses
 const VERIFIED_EMAIL = 'krishnareddy11082003@gmail.com'
+
+interface ConnectionTestResult {
+  success: boolean
+  error?: string
+}
+
+interface ImapTestConfig {
+  server: string
+  port: number
+  security: 'none' | 'ssl' | 'tls'
+  username: string
+  password: string
+}
+
+interface SmtpTestConfig {
+  server: string
+  port: number
+  security: 'none' | 'ssl' | 'tls'
+  username: string
+  password: string
+  requireAuth: boolean
+}
 
 export async function sendVerificationEmail(
   email: string,
@@ -224,5 +248,76 @@ export async function sendPasswordResetEmail(
     console.error('Email sending error:', error)
     console.log('🔗 Reset URL is still available above for manual testing')
     return null
+  }
+}
+
+export async function testImapConnection(config: ImapTestConfig): Promise<ConnectionTestResult> {
+  const client = new ImapFlow({
+    host: config.server,
+    port: config.port,
+    secure: config.security === 'ssl',
+    auth: {
+      user: config.username,
+      pass: config.password
+    }
+  })
+
+  try {
+    await client.connect()
+    await client.logout()
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
+  }
+}
+
+export async function testSmtpConnection(config: SmtpTestConfig): Promise<ConnectionTestResult> {
+  // For GoDaddy's SMTP server, always use port 587 with TLS
+  const smtpConfig = {
+    ...config,
+    port: 587,
+    security: 'tls' as const
+  }
+
+  console.log('🔍 SMTP Test Config:', {
+    server: smtpConfig.server,
+    port: smtpConfig.port,
+    security: smtpConfig.security,
+    username: smtpConfig.username,
+    passwordLength: smtpConfig.password.length,
+    passwordFirstChars: smtpConfig.password.substring(0, 3),
+    requireAuth: smtpConfig.requireAuth
+  })
+
+  const transporter = nodemailer.createTransport({
+    host: smtpConfig.server,
+    port: smtpConfig.port,
+    secure: false, // Use TLS
+    auth: smtpConfig.requireAuth ? {
+      user: smtpConfig.username,
+      pass: smtpConfig.password
+    } : undefined,
+    debug: true,
+    logger: true,
+    tls: {
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2'
+    }
+  })
+
+  try {
+    console.log('🔄 Verifying SMTP connection...')
+    await transporter.verify()
+    console.log('✅ SMTP connection successful')
+    return { success: true }
+  } catch (error) {
+    console.error('❌ SMTP connection error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
   }
 } 

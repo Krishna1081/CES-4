@@ -160,9 +160,9 @@ export async function getUserWithOrganization(userId: number) {
         team: teams,
       })
       .from(users)
-      .innerJoin(teamMembers, eq(teamMembers.userId, users.id))
-      .innerJoin(teams, eq(teams.id, teamMembers.teamId))
-      .innerJoin(organizations, eq(organizations.id, teams.organizationId))
+      .leftJoin(teamMembers, eq(teamMembers.userId, users.id))
+      .leftJoin(teams, eq(teams.id, teamMembers.teamId))
+      .leftJoin(organizations, eq(organizations.id, teams.organizationId))
       .where(eq(users.id, userId))
       .limit(1)
 

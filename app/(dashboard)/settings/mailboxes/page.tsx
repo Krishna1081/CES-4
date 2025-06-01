@@ -1,84 +1,111 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Mail, Plus, Settings, AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
+import { Icon } from '@/components/ui/icon'
+import { Plus, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { MailboxesTable } from './components/mailboxes-table'
+
+interface MailboxStats {
+  sent: number
+  replies: number
+  saved: number
+  received: number
+  successRate: number
+}
 
 interface Mailbox {
-  id: string
-  email: string
+  id: number
+  emailAddress: string
   provider: string
   status: 'active' | 'warning' | 'error'
-  lastChecked: string
   dailyLimit: number
   warmUpStatus: 'active' | 'inactive' | 'completed'
+  stats: MailboxStats
 }
 
 export default function MailboxesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([])
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock data - replace with actual API call
-  useState(() => {
-    setMailboxes([
-      {
-        id: '1',
-        email: 'john@example.com',
-        provider: 'Gmail',
-        status: 'active',
-        lastChecked: new Date().toISOString(),
-        dailyLimit: 100,
-        warmUpStatus: 'active'
-      },
-      {
-        id: '2',
-        email: 'support@example.com',
-        provider: 'Custom SMTP',
-        status: 'warning',
-        lastChecked: new Date().toISOString(),
-        dailyLimit: 50,
-        warmUpStatus: 'inactive'
-      }
-    ])
-    setIsLoading(false)
-  })
+  useEffect(() => {
+    loadMailboxes()
+  }, [])
 
-  const getStatusBadge = (status: Mailbox['status']) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="default" className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Active</Badge>
-      case 'warning':
-        return <Badge variant="destructive" className="bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20">Warning</Badge>
-      case 'error':
-        return <Badge variant="destructive" className="bg-red-500/10 text-red-500 hover:bg-red-500/20">Error</Badge>
+  const loadMailboxes = async () => {
+    try {
+      const response = await fetch('/api/mailboxes')
+      if (!response.ok) throw new Error('Failed to fetch mailboxes')
+      const data = await response.json()
+      
+      // Fetch stats for each mailbox
+      const mailboxesWithStats = await Promise.all(
+        data.map(async (mailbox: Mailbox) => {
+          const statsResponse = await fetch(`/api/mailboxes/${mailbox.id}/stats`)
+          if (!statsResponse.ok) throw new Error(`Failed to fetch stats for mailbox ${mailbox.id}`)
+          const stats = await statsResponse.json()
+          return { ...mailbox, stats }
+        })
+      )
+      
+      setMailboxes(mailboxesWithStats)
+    } catch (error) {
+      console.error('Error fetching mailboxes:', error)
+      setError(error instanceof Error ? error.message : 'Failed to fetch mailboxes')
+      toast.error('Failed to fetch mailboxes')
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const getWarmUpBadge = (status: Mailbox['warmUpStatus']) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="default" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20">Warming Up</Badge>
-      case 'inactive':
-        return <Badge variant="outline" className="border-muted-foreground/20 text-muted-foreground">Not Started</Badge>
-      case 'completed':
-        return <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Completed</Badge>
+  const handleStatusChange = async (mailboxId: number, newStatus: 'active' | 'error') => {
+    try {
+      const response = await fetch(`/api/mailboxes/${mailboxId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      })
+      
+      if (!response.ok) throw new Error('Failed to update mailbox')
+      
+      const updatedMailboxes = mailboxes.map(m => 
+        m.id === mailboxId ? { ...m, status: newStatus } : m
+      )
+      setMailboxes(updatedMailboxes)
+      toast.success(`Mailbox ${newStatus === 'active' ? 'activated' : 'deactivated'}`)
+    } catch (error) {
+      console.error('Error updating mailbox:', error)
+      throw error
     }
   }
 
-  const getStatusIcon = (status: Mailbox['status']) => {
-    switch (status) {
-      case 'active':
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />
-      case 'warning':
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />
-      case 'error':
-        return <XCircle className="h-5 w-5 text-red-500" />
+  const handleDelete = async (mailboxId: number) => {
+    try {
+      const response = await fetch(`/api/mailboxes/${mailboxId}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) throw new Error('Failed to delete mailbox')
+      
+      setMailboxes(mailboxes.filter(m => m.id !== mailboxId))
+      toast.success('Mailbox deleted successfully')
+    } catch (error) {
+      console.error('Error deleting mailbox:', error)
+      throw error
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container max-w-7xl py-10 mx-auto">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -88,80 +115,33 @@ export default function MailboxesPage() {
         <p className="text-lg text-muted-foreground">
           Manage your connected email accounts
         </p>
-        <Link href="/settings/mailboxes/add" className="mt-6">
-          <Button size="lg" className="h-12 px-6">
-            <Plus className="mr-2 h-5 w-5" />
-            Add Mailbox
+        <div className="flex items-center gap-2 mt-4">
+          <Button variant="outline" asChild>
+            <Link href="/settings/mailboxes/dns">
+              <Icon icon={Shield} className="h-4 w-4 mr-2" />
+              DNS Settings
+            </Link>
           </Button>
-        </Link>
+          <Button asChild>
+            <Link href="/settings/mailboxes/add">
+              <Icon icon={Plus} className="h-4 w-4 mr-2" />
+              Add Mailbox
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      <div className="space-y-6 max-w-4xl mx-auto">
-        {mailboxes.map((mailbox) => (
-          <Card key={mailbox.id} className="group relative overflow-hidden transition-all duration-200 hover:shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(mailbox.status)}
-                    <h3 className="text-lg font-medium">{mailbox.email}</h3>
-                    <div className="flex gap-2">
-                      {getStatusBadge(mailbox.status)}
-                      {getWarmUpBadge(mailbox.warmUpStatus)}
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Provider: {mailbox.provider} • Daily Limit: {mailbox.dailyLimit} emails
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Link href={`/settings/mailboxes/${mailbox.id}/dns`}>
-                    <Button variant="outline" size="sm" className="h-9">
-                      DNS Records
-                    </Button>
-                  </Link>
-                  <Link href={`/settings/mailboxes/${mailbox.id}`}>
-                    <Button variant="outline" size="sm" className="h-9">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-            <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-transparent transition-all duration-200 group-hover:ring-primary/20" />
-          </Card>
-        ))}
-
-        {mailboxes.length === 0 && !isLoading && (
-          <Card className="relative overflow-hidden">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <div className="rounded-full bg-primary/10 p-4">
-                <Mail className="h-12 w-12 text-primary" />
-              </div>
-              <h3 className="mt-6 text-xl font-medium">No Mailboxes Connected</h3>
-              <p className="mt-2 text-center text-base text-muted-foreground">
-                Connect your first email account to start sending emails
-              </p>
-              <Link href="/settings/mailboxes/add" className="mt-6">
-                <Button size="lg" className="h-12 px-6">
-                  <Plus className="mr-2 h-5 w-5" />
-                  Add Mailbox
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-
-        {mailboxes.some(m => m.status !== 'active') && (
-          <Alert className="border-yellow-500/20 bg-yellow-500/5">
-            <AlertCircle className="h-5 w-5 text-yellow-500" />
-            <AlertTitle className="text-yellow-500">Attention Required</AlertTitle>
-            <AlertDescription className="text-yellow-500/80">
-              Some mailboxes need attention. Check their status and take necessary actions.
-            </AlertDescription>
-          </Alert>
-        )}
-      </div>
+      {mailboxes.length > 0 ? (
+        <MailboxesTable 
+          mailboxes={mailboxes}
+          onStatusChange={handleStatusChange}
+          onDelete={handleDelete}
+        />
+      ) : (
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">No mailboxes found. Add your first mailbox to get started.</p>
+        </div>
+      )}
     </div>
   )
 } 

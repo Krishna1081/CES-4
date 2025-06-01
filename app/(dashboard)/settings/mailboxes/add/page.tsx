@@ -162,13 +162,53 @@ export default function AddMailboxPage() {
         throw new Error('IMAP and SMTP server addresses are required')
       }
 
-      // TODO: Implement connection test and storage
-      // 1. Test IMAP connection
-      // 2. Test SMTP connection
-      // 3. Store credentials securely
-      // 4. Create mailbox record
+      // First encrypt the password
+      const response = await fetch('/api/encrypt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: connectionDetails.password })
+      })
 
-      toast.success('Custom connection initiated')
+      if (!response.ok) {
+        throw new Error('Failed to encrypt password')
+      }
+
+      const { encrypted } = await response.json()
+
+      // Now create the mailbox with the encrypted password
+      const mailboxResponse = await fetch('/api/mailboxes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: connectionDetails.email,
+          provider: 'custom',
+          authTokenEncrypted: encrypted,
+          imap: {
+            server: connectionDetails.imap.server,
+            port: parseInt(connectionDetails.imap.port),
+            security: connectionDetails.imap.security,
+            username: connectionDetails.imap.username || connectionDetails.email
+          },
+          smtp: {
+            server: connectionDetails.smtp.server,
+            port: parseInt(connectionDetails.smtp.port),
+            security: connectionDetails.smtp.security,
+            username: connectionDetails.smtp.username || connectionDetails.email,
+            requireAuth: connectionDetails.smtp.requireAuth
+          }
+        })
+      })
+
+      if (!mailboxResponse.ok) {
+        const error = await mailboxResponse.json()
+        throw new Error(error.error || 'Failed to connect mailbox')
+      }
+
+      setStatus('success')
+      toast.success('Mailbox connected successfully')
+      
+      // Redirect to mailboxes list page
+      window.location.href = '/settings/mailboxes'
     } catch (error) {
       setStatus('error')
       setError(error instanceof Error ? error.message : 'Failed to connect mailbox')

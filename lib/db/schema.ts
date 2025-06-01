@@ -10,6 +10,7 @@ import {
   real,
   jsonb,
   primaryKey,
+  pgEnum,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -68,8 +69,12 @@ export const teamMembers = pgTable('team_members', {
   joinedAt: timestamp('joined_at').notNull().defaultNow(),
 });
 
+export const mailboxStatusEnum = pgEnum('mailbox_status', ['active', 'warning', 'error', 'inactive'])
+export const warmupStatusEnum = pgEnum('warmup_status', ['active', 'inactive', 'completed'])
+export const eventTypeEnum = pgEnum('event_type', ['reply', 'received'])
+
 export const mailboxes = pgTable('mailboxes', {
-  id: serial('id').primaryKey(),
+  id: bigint('id', { mode: 'number' }).primaryKey(),
   userId: integer('user_id')
     .notNull()
     .references(() => users.id),
@@ -78,11 +83,12 @@ export const mailboxes = pgTable('mailboxes', {
     .references(() => organizations.id),
   emailAddress: varchar('email_address', { length: 255 }).notNull(),
   provider: varchar('provider', { length: 50 }).notNull(),
-  authTokenEncrypted: text('auth_token_encrypted').notNull(),
-  status: varchar('status', { length: 50 }).notNull(),
-  dailyLimit: integer('daily_limit').default(100),
-  warmUpStatus: varchar('warm_up_status', { length: 50 }).default('inactive'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
+  status: mailboxStatusEnum('status').notNull().default('inactive'),
+  dailyLimit: bigint('daily_limit', { mode: 'number' }).notNull().default(50),
+  warmUpStatus: warmupStatusEnum('warmup_status').notNull().default('inactive'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+  metadata: text('metadata'),
 });
 
 export const domains = pgTable('domains', {
@@ -196,15 +202,15 @@ export const sentEmails = pgTable('sent_emails', {
   campaignId: integer('campaign_id')
     .notNull()
     .references(() => campaigns.id),
-  mailboxId: integer('mailbox_id')
-    .notNull()
-    .references(() => mailboxes.id),
+  mailboxId: bigint('mailbox_id', { mode: 'number' })
+    .references(() => mailboxes.id)
+    .notNull(),
   sentAt: timestamp('sent_at').notNull(),
-  subject: text('subject'),
+  subject: varchar('subject', { length: 255 }).notNull(),
   body: text('body'),
   messageId: varchar('message_id', { length: 255 }).unique(),
   status: varchar('status', { length: 50 }).notNull(),
-  metadata: jsonb('metadata'),
+  metadata: text('metadata'),
 });
 
 export const emailEvents = pgTable('email_events', {
@@ -215,9 +221,9 @@ export const emailEvents = pgTable('email_events', {
   contactId: integer('contact_id')
     .notNull()
     .references(() => contacts.id),
-  type: varchar('type', { length: 50 }).notNull(),
+  type: eventTypeEnum('type').notNull(),
   timestamp: timestamp('timestamp').notNull(),
-  metadata: jsonb('metadata'),
+  metadata: text('metadata'),
 });
 
 export const suppressionList = pgTable('suppression_list', {
@@ -268,9 +274,9 @@ export const tasks = pgTable('tasks', {
 
 export const warmupSettings = pgTable('warmup_settings', {
   id: serial('id').primaryKey(),
-  mailboxId: integer('mailbox_id')
-    .notNull()
-    .references(() => mailboxes.id),
+  mailboxId: bigint('mailbox_id', { mode: 'number' })
+    .references(() => mailboxes.id)
+    .notNull(),
   enabled: boolean('enabled').notNull().default(false),
   dailyLimit: integer('daily_limit').notNull().default(5),
   rampUpDays: integer('ramp_up_days').notNull().default(30),
@@ -282,9 +288,9 @@ export const warmupSettings = pgTable('warmup_settings', {
 
 export const warmupInteractions = pgTable('warmup_interactions', {
   id: serial('id').primaryKey(),
-  mailboxId: integer('mailbox_id')
-    .notNull()
-    .references(() => mailboxes.id),
+  mailboxId: bigint('mailbox_id', { mode: 'number' })
+    .references(() => mailboxes.id)
+    .notNull(),
   sentAt: timestamp('sent_at').notNull(),
   recipientEmail: varchar('recipient_email', { length: 255 }).notNull(),
   type: varchar('type', { length: 50 }).notNull(),

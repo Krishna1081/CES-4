@@ -183,8 +183,13 @@ function generateAuthSecret(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
+function generateEncryptionKey(): string {
+  console.log('Step 6: Generating ENCRYPTION_KEY...');
+  return crypto.randomBytes(32).toString('hex');
+}
+
 async function writeEnvFile(envVars: Record<string, string>) {
-  console.log('Step 6: Writing environment variables to .env');
+  console.log('Step 7: Writing environment variables to .env');
   const envContent = Object.entries(envVars)
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
@@ -201,6 +206,7 @@ async function main() {
   const STRIPE_WEBHOOK_SECRET = await createStripeWebhook();
   const BASE_URL = 'http://localhost:3000';
   const AUTH_SECRET = generateAuthSecret();
+  const ENCRYPTION_KEY = generateEncryptionKey();
 
   await writeEnvFile({
     POSTGRES_URL,
@@ -208,6 +214,7 @@ async function main() {
     STRIPE_WEBHOOK_SECRET,
     BASE_URL,
     AUTH_SECRET,
+    ENCRYPTION_KEY,
   });
 
   console.log('🎉 Setup completed successfully!');

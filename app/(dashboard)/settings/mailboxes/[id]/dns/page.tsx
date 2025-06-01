@@ -27,31 +27,33 @@ export default function DNSRecordsPage({ params }: { params: { id: string } }) {
   const checkDNSRecords = async () => {
     try {
       setIsLoading(true)
-      // TODO: Implement DNS records checking
-      // This is a mock response
-      setRecords([
-        {
-          type: 'SPF',
-          status: 'valid',
-          value: 'v=spf1 include:_spf.google.com ~all',
-          description: 'SPF record is properly configured'
-        },
-        {
-          type: 'DKIM',
-          status: 'invalid',
-          value: 'v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...',
-          description: 'DKIM record needs to be updated'
-        },
-        {
-          type: 'DMARC',
-          status: 'missing',
-          value: '',
-          description: 'DMARC record is not configured'
+      // Try to get the mailbox email from the backend (for real domain extraction)
+      let mailboxEmail = ''
+      try {
+        const res = await fetch(`/api/mailboxes/${params.id}`)
+        if (res.ok) {
+          const mailbox = await res.json()
+          mailboxEmail = mailbox.emailAddress || ''
         }
-      ])
-      setDomain('example.com')
+      } catch (e) {
+        // fallback to empty
+      }
+      // Extract domain from email
+      const extractedDomain = mailboxEmail.split('@')[1] || 'example.com'
+      setDomain(extractedDomain)
+      // Call backend DNS validation API
+      const response = await fetch('/api/dns/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: extractedDomain })
+      })
+      if (!response.ok) throw new Error('DNS API error')
+      const data = await response.json()
+      setRecords(data.records)
     } catch (error) {
       toast.error('Failed to check DNS records')
+      setRecords([])
+      setDomain('')
       console.error('DNS check error:', error)
     } finally {
       setIsLoading(false)
@@ -72,11 +74,11 @@ export default function DNSRecordsPage({ params }: { params: { id: string } }) {
   const getStatusBadge = (status: DNSRecord['status']) => {
     switch (status) {
       case 'valid':
-        return <Badge variant="success">Valid</Badge>
+        return <Badge variant="default">Valid</Badge>
       case 'invalid':
         return <Badge variant="destructive">Invalid</Badge>
       case 'missing':
-        return <Badge variant="warning">Missing</Badge>
+        return <Badge variant="secondary">Missing</Badge>
     }
   }
 
