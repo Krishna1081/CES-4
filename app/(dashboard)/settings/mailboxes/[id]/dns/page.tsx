@@ -9,7 +9,7 @@ import { CheckCircle2, XCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface DNSRecord {
-  type: 'SPF' | 'DKIM' | 'DMARC'
+  type: 'SPF' | 'DMARC'
   status: 'valid' | 'invalid' | 'missing'
   value: string
   description: string
@@ -49,7 +49,8 @@ export default function DNSRecordsPage({ params }: { params: { id: string } }) {
       })
       if (!response.ok) throw new Error('DNS API error')
       const data = await response.json()
-      setRecords(data.records)
+      // Filter out any DKIM records if they exist
+      setRecords(data.records.filter((r: { type: string }) => r.type === 'SPF' || r.type === 'DMARC'))
     } catch (error) {
       toast.error('Failed to check DNS records')
       setRecords([])

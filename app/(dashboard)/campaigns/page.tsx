@@ -30,6 +30,9 @@ interface Campaign {
     id: number
     name: string
   }
+  metadata?: {
+    mailboxIds: number[]
+  }
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -227,6 +230,14 @@ export default function CampaignsPage() {
                         {campaign.goal && (
                           <div className="text-sm text-muted-foreground mb-2">
                             Goal: {campaign.goal}
+                          </div>
+                        )}
+                        {campaign.metadata?.mailboxIds && campaign.metadata.mailboxIds.length > 0 && (
+                          <div className="text-sm text-muted-foreground mb-2">
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-4 w-4" />
+                              <span>{campaign.metadata.mailboxIds.length} mailbox{campaign.metadata.mailboxIds.length === 1 ? '' : 'es'} selected</span>
+                            </div>
                           </div>
                         )}
                         <div className="text-xs text-muted-foreground">

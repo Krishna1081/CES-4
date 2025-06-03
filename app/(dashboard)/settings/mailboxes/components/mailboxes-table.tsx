@@ -29,9 +29,13 @@ import {
   Gauge,
   Workflow,
   Trash2,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 
 interface MailboxStats {
   sent: number
@@ -48,6 +52,7 @@ interface Mailbox {
   status: 'active' | 'warning' | 'error'
   dailyLimit: number
   warmUpStatus: 'active' | 'inactive' | 'completed'
+  dnsStatus: 'valid' | 'invalid' | 'not_found'
   stats: MailboxStats
 }
 
@@ -55,20 +60,26 @@ interface MailboxesTableProps {
   mailboxes: Mailbox[]
   onStatusChange: (mailboxId: number, newStatus: 'active' | 'error') => Promise<void>
   onDelete: (mailboxId: number) => Promise<void>
+  selectedMailboxes: number[]
+  onSelectionChange: (mailboxIds: number[]) => void
 }
 
-export function MailboxesTable({ mailboxes, onStatusChange, onDelete }: MailboxesTableProps) {
-  const [selectedMailboxes, setSelectedMailboxes] = useState<number[]>([])
-
+export function MailboxesTable({ 
+  mailboxes, 
+  onStatusChange, 
+  onDelete,
+  selectedMailboxes,
+  onSelectionChange
+}: MailboxesTableProps) {
   const handleSelectAll = (checked: boolean) => {
-    setSelectedMailboxes(checked ? mailboxes.map(m => m.id) : [])
+    onSelectionChange(checked ? mailboxes.map(m => m.id) : [])
   }
 
   const handleSelectOne = (checked: boolean, mailboxId: number) => {
-    setSelectedMailboxes(prev => 
+    onSelectionChange(
       checked 
-        ? [...prev, mailboxId]
-        : prev.filter(id => id !== mailboxId)
+        ? [...selectedMailboxes, mailboxId]
+        : selectedMailboxes.filter(id => id !== mailboxId)
     )
   }
 
@@ -94,6 +105,32 @@ export function MailboxesTable({ mailboxes, onStatusChange, onDelete }: Mailboxe
     }
   }
 
+  const getDNSStatusBadge = (status: Mailbox['dnsStatus']) => {
+    switch (status) {
+      case 'valid':
+        return (
+          <Badge variant="default" className="flex items-center gap-1 bg-green-500 hover:bg-green-600">
+            <CheckCircle2 className="h-3 w-3" />
+            Valid
+          </Badge>
+        )
+      case 'invalid':
+        return (
+          <Badge variant="destructive" className="flex items-center gap-1">
+            <XCircle className="h-3 w-3" />
+            Invalid
+          </Badge>
+        )
+      default:
+        return (
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            Not Found
+          </Badge>
+        )
+    }
+  }
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -107,6 +144,7 @@ export function MailboxesTable({ mailboxes, onStatusChange, onDelete }: Mailboxe
               />
             </TableHead>
             <TableHead>Email</TableHead>
+            <TableHead>DNS Status</TableHead>
             <TableHead className="text-right">Success %</TableHead>
             <TableHead className="text-right">Sent</TableHead>
             <TableHead className="text-right">Reply</TableHead>
@@ -127,6 +165,7 @@ export function MailboxesTable({ mailboxes, onStatusChange, onDelete }: Mailboxe
                 />
               </TableCell>
               <TableCell>{mailbox.emailAddress}</TableCell>
+              <TableCell>{getDNSStatusBadge(mailbox.dnsStatus)}</TableCell>
               <TableCell className="text-right">{mailbox.stats.successRate}%</TableCell>
               <TableCell className="text-right">{mailbox.stats.sent}</TableCell>
               <TableCell className="text-right">{mailbox.stats.replies}</TableCell>

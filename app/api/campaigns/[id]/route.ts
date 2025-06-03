@@ -137,6 +137,25 @@ export async function DELETE(
       )
     }
     
+    // First get all sequences for this campaign
+    const campaignSequences = await db
+      .select()
+      .from(sequences)
+      .where(eq(sequences.campaignId, campaignId))
+
+    // Delete all sequence steps for each sequence
+    for (const sequence of campaignSequences) {
+      await db
+        .delete(sequenceSteps)
+        .where(eq(sequenceSteps.sequenceId, sequence.id))
+    }
+
+    // Then delete all sequences
+    await db
+      .delete(sequences)
+      .where(eq(sequences.campaignId, campaignId))
+    
+    // Finally delete the campaign
     await db
       .delete(campaigns)
       .where(eq(campaigns.id, campaignId))

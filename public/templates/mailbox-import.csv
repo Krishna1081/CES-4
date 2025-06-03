@@ -1,4 +1,5 @@
 email,password,imapserver,imapport,imapsecurity,imapusername,smtpserver,smtpport,smtpsecurity,smtpusername,requireauth
-example@outlook.com,password123,outlook.office365.com,993,ssl,example@outlook.com,smtp.office365.com,587,tls,example@outlook.com,true
-example@gmail.com,password123,imap.gmail.com,993,ssl,example@gmail.com,smtp.gmail.com,587,tls,example@gmail.com,true
-example@yahoo.com,password123,imap.mail.yahoo.com,993,ssl,example@yahoo.com,smtp.mail.yahoo.com,587,tls,example@yahoo.com,true 
+rahul@quickintell.org,6ih8W$KNtY3fLWA,imap.secureserver.net,993,ssl,rahul@quickintell.org,smtpout.secureserver.net,465,ssl,rahul@quickintell.org,true
+rahul@quickintell.online,6ih8W$KNtY3fLWA,imap.secureserver.net,993,ssl,rahul@quickintell.online,smtpout.secureserver.net,465,ssl,rahul@quickintell.online,true
+founder@quickintell.online,6ih8W$KNtY3fLWA,imap.secureserver.net,993,ssl,founder@quickintell.online,smtpout.secureserver.net,465,ssl,founder@quickintell.online,true
+founder@quickintell.xyz,6ih8W$KNtY3fLWA,imap.secureserver.net,993,ssl,founder@quickintell.xyz,smtpout.secureserver.net,465,ssl,founder@quickintell.xyz,true

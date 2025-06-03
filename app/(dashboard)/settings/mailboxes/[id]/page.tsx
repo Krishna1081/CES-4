@@ -198,7 +198,7 @@ export default function MailboxSettingsPage({ params }: { params: { id: string }
 
   if (isLoading) {
     return (
-      <div className="container max-w-4xl py-8">
+      <div className="container max-w-4xl py-8 mx-auto">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
@@ -208,7 +208,7 @@ export default function MailboxSettingsPage({ params }: { params: { id: string }
 
   if (!mailbox) {
     return (
-      <div className="container max-w-4xl py-8">
+      <div className="container max-w-4xl py-8 mx-auto">
         <Alert variant="destructive">
           <Icon icon={AlertCircle} className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
@@ -221,7 +221,7 @@ export default function MailboxSettingsPage({ params }: { params: { id: string }
   }
 
   return (
-    <div className="container max-w-4xl py-8">
+    <div className="container max-w-4xl py-8 mx-auto">
       <Card>
         <CardHeader>
           <CardTitle>Mailbox Settings</CardTitle>

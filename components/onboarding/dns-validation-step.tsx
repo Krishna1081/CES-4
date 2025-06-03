@@ -13,7 +13,7 @@ interface DnsValidationStepProps {
 }
 
 interface DnsRecord {
-  type: 'SPF' | 'DKIM' | 'DMARC'
+  type: 'SPF' | 'DMARC'
   status: 'valid' | 'invalid' | 'missing' | 'checking'
   value?: string
   expectedValue?: string
@@ -28,14 +28,9 @@ function DnsValidationStep({ domain, onNext, onBack }: DnsValidationStepProps) {
       description: 'Specifies which servers can send emails for your domain',
     },
     {
-      type: 'DKIM',
-      status: 'checking', 
-      description: 'Adds a digital signature to verify email authenticity',
-    },
-    {
       type: 'DMARC',
       status: 'checking',
-      description: 'Defines how to handle emails that fail SPF or DKIM checks',
+      description: 'Defines how to handle emails that fail SPF checks',
     },
   ])
   const [isChecking, setIsChecking] = useState(false)
@@ -58,7 +53,8 @@ function DnsValidationStep({ domain, onNext, onBack }: DnsValidationStepProps) {
 
       if (response.ok) {
         const result = await response.json()
-        setRecords(result.records)
+        // Filter out any DKIM records if they exist
+        setRecords(result.records.filter((r: { type: string }) => r.type === 'SPF' || r.type === 'DMARC'))
       } else {
         // Simulate results for demo
         setTimeout(() => {
@@ -70,16 +66,10 @@ function DnsValidationStep({ domain, onNext, onBack }: DnsValidationStepProps) {
               description: 'Specifies which servers can send emails for your domain',
             },
             {
-              type: 'DKIM',
-              status: 'invalid',
-              expectedValue: 'v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3...',
-              description: 'Adds a digital signature to verify email authenticity',
-            },
-            {
               type: 'DMARC',
               status: 'missing',
               expectedValue: 'v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com',
-              description: 'Defines how to handle emails that fail SPF or DKIM checks',
+              description: 'Defines how to handle emails that fail SPF checks',
             },
           ])
         }, 2000)

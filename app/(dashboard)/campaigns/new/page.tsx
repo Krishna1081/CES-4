@@ -107,6 +107,14 @@ interface CampaignSettings {
   }
 }
 
+interface Mailbox {
+  id: number
+  emailAddress: string
+  provider: string
+  status: string
+  dailyLimit: number
+}
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function NewCampaignPage() {
@@ -137,9 +145,13 @@ export default function NewCampaignPage() {
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [selectedMailboxes, setSelectedMailboxes] = useState<number[]>([])
 
   // Fetch email templates
   const { data: templates } = useSWR<EmailTemplate[]>('/api/templates', fetcher)
+
+  // Fetch active mailboxes
+  const { data: mailboxes = [] } = useSWR<Mailbox[]>('/api/mailboxes/active', fetcher)
 
   // Check for pre-selected segment from localStorage
   useEffect(() => {
@@ -239,7 +251,8 @@ export default function NewCampaignPage() {
           name: campaignName,
           goal: campaignGoal,
           targetListId: selectedSegment ? parseInt(selectedSegment.id) : undefined,
-          status
+          status,
+          mailboxIds: selectedMailboxes
         })
       })
 
@@ -462,8 +475,82 @@ export default function NewCampaignPage() {
     </div>
   )
 
+  const handleSelectMailbox = (id: number) => {
+    if (selectedMailboxes.includes(id)) {
+      setSelectedMailboxes(selectedMailboxes.filter(m => m !== id))
+    } else {
+      setSelectedMailboxes([...selectedMailboxes, id])
+    }
+  }
+
+  const handleSelectAllMailboxes = () => {
+    setSelectedMailboxes(mailboxes.map(m => m.id))
+  }
+
+  const handleRemoveAllMailboxes = () => {
+    setSelectedMailboxes([])
+  }
+
   const renderCampaignSettings = () => (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Sending Mailboxes</CardTitle>
+          <CardDescription>Select the mailboxes to use for sending emails</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="font-semibold mb-2 block">Accounts to use</Label>
+            <div className="flex w-full max-w-full space-x-1 overflow-auto flex-grow max-h-60 overflow-y-auto border border-neutral-content rounded-box p-2 flex-col !space-y-1">
+              {mailboxes.map(mailbox => {
+                const selected = selectedMailboxes.includes(mailbox.id)
+                return (
+                  <label
+                    key={mailbox.id}
+                    className={
+                      'label cursor-pointer border rounded-box px-4 transition-all flex items-center hover:opacity-90 ' +
+                      (selected
+                        ? 'bg-green-100 border-green-300 opacity-100'
+                        : 'bg-neutral-100 border-neutral-200 opacity-50')
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={selected}
+                      onChange={() => handleSelectMailbox(mailbox.id)}
+                      value={mailbox.emailAddress}
+                    />
+                    <span className="label-text">
+                      {mailbox.emailAddress}
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                className="btn btn-default btn-xs"
+                onClick={handleRemoveAllMailboxes}
+              >
+                Remove all
+              </button>
+              <button
+                type="button"
+                className="btn btn-default btn-xs"
+                onClick={handleSelectAllMailboxes}
+              >
+                Select all
+              </button>
+            </div>
+            <div className="mt-2 text-sm text-neutral-500">
+              They must be active in Home tab. Adjust warmup config accordingly.
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Sending Schedule</CardTitle>
@@ -641,6 +728,26 @@ export default function NewCampaignPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-medium mb-2">Sending Mailboxes</h3>
+            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              {selectedMailboxes.length > 0 ? (
+                mailboxes
+                  .filter(mailbox => selectedMailboxes.includes(mailbox.id))
+                  .map(mailbox => (
+                    <div key={mailbox.id}>
+                      {mailbox.emailAddress} ({mailbox.provider})
+                      <span className="text-sm text-gray-600 ml-2">
+                        Daily limit: {mailbox.dailyLimit}
+                      </span>
+                    </div>
+                  ))
+              ) : (
+                <div className="text-red-500">No mailboxes selected</div>
+              )}
             </div>
           </div>
 

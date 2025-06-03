@@ -1,6 +1,7 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,11 +9,9 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
-import { Loader2, Clock, Calendar, Mail, TrendingUp } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Loader2, Clock, TrendingUp, ArrowLeft } from 'lucide-react'
 import { TimePicker } from '@/components/ui/time-picker'
 import { Checkbox } from '@/components/ui/checkbox'
-import useSWR from 'swr'
 
 interface WarmupSettings {
   enabled: boolean
@@ -37,9 +36,10 @@ const DAYS_OF_WEEK = [
   'Sunday'
 ]
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
-export default function WarmUpSettingsPage() {
+export default function MailboxWarmupSettingsPage() {
+  const router = useRouter()
+  const params = useParams() as { id: string }
+  const mailboxId = params.id
   const [isLoading, setIsLoading] = useState(false)
   const [settings, setSettings] = useState<WarmupSettings>({
     enabled: false,
@@ -53,35 +53,40 @@ export default function WarmUpSettingsPage() {
       endTime: '17:00'
     }
   })
-
-  // Fetch current settings
-  const { data: currentSettings, error } = useSWR<WarmupSettings>('/api/warmup/settings', fetcher)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (currentSettings) {
-      setSettings(currentSettings)
+    async function fetchSettings() {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(`/api/mailboxes/${mailboxId}/warmup`)
+        if (!res.ok) throw new Error('Failed to fetch warmup settings')
+        const data = await res.json()
+        setSettings(data)
+      } catch (err) {
+        setError('Failed to load warm-up settings')
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [currentSettings])
+    if (mailboxId) fetchSettings()
+  }, [mailboxId])
 
   const handleSave = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/warmup/settings', {
+      setError(null)
+      const response = await fetch(`/api/mailboxes/${mailboxId}/warmup`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to save settings')
-      }
-
+      if (!response.ok) throw new Error('Failed to save settings')
       toast.success('Warm-up settings saved successfully')
-    } catch (error) {
+    } catch (err) {
+      setError('Failed to save warm-up settings')
       toast.error('Failed to save warm-up settings')
-      console.error('Save error:', error)
     } finally {
       setIsLoading(false)
     }
@@ -99,11 +104,21 @@ export default function WarmUpSettingsPage() {
     }))
   }
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    )
+  }
+
   if (error) {
     return (
       <div className="container mx-auto py-8 px-4">
         <div className="text-center">
-          <p className="text-red-500">Failed to load warm-up settings</p>
+          <p className="text-red-500">{error}</p>
         </div>
       </div>
     )
@@ -112,111 +127,117 @@ export default function WarmUpSettingsPage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Email Warm-up Settings</h1>
-          <p className="text-muted-foreground">
-            Configure how your email accounts are warmed up to improve deliverability
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/settings/mailboxes')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Mailboxes
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Mailbox Warm-up Settings</h1>
+            <p className="text-muted-foreground">
+              Configure warm-up for this mailbox to improve deliverability
+            </p>
+          </div>
         </div>
       </div>
-
       <div className="space-y-6">
         {/* Main Settings */}
-      <Card>
-        <CardHeader>
+        <Card>
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
               Warm-up Configuration
             </CardTitle>
-          <CardDescription>
-              Set up the basic warm-up parameters for your email accounts
-          </CardDescription>
-        </CardHeader>
+            <CardDescription>
+              Set up the basic warm-up parameters for this mailbox
+            </CardDescription>
+          </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Enable Warm-up</Label>
                 <p className="text-sm text-muted-foreground">
-                  Start warming up your email accounts automatically
+                  Start warming up this mailbox automatically
                 </p>
               </div>
               <Switch
                 checked={settings.enabled}
-                onCheckedChange={(checked) => setSettings(prev => ({ ...prev, enabled: checked }))}
+                onCheckedChange={checked => setSettings(prev => ({ ...prev, enabled: checked }))}
               />
             </div>
-
-                <div className="space-y-4">
+            <div className="space-y-4">
               <div>
-                    <Label>Initial Daily Limit</Label>
-                    <div className="flex items-center gap-4">
-                      <Slider
+                <Label>Initial Daily Limit</Label>
+                <div className="flex items-center gap-4">
+                  <Slider
                     value={[settings.dailyLimit]}
                     onValueChange={([value]) => setSettings(prev => ({ ...prev, dailyLimit: value }))}
-                        min={1}
-                        max={20}
-                        step={1}
-                        className="flex-1"
-                      />
-                      <Input
-                        type="number"
+                    min={1}
+                    max={20}
+                    step={1}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
                     value={settings.dailyLimit}
-                    onChange={(e) => setSettings(prev => ({ ...prev, dailyLimit: parseInt(e.target.value) }))}
-                        className="w-20"
-                        min={1}
-                        max={20}
-                      />
-                    </div>
+                    onChange={e => setSettings(prev => ({ ...prev, dailyLimit: parseInt(e.target.value) }))}
+                    className="w-20"
+                    min={1}
+                    max={20}
+                  />
+                </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   Number of emails to send per day at the start
-                    </p>
-                  </div>
-
+                </p>
+              </div>
               <div>
-                    <Label>Ramp-up Period (Days)</Label>
-                    <div className="flex items-center gap-4">
-                      <Slider
+                <Label>Ramp-up Period (Days)</Label>
+                <div className="flex items-center gap-4">
+                  <Slider
                     value={[settings.rampUpDays]}
                     onValueChange={([value]) => setSettings(prev => ({ ...prev, rampUpDays: value }))}
-                        min={7}
-                        max={90}
-                        step={1}
-                        className="flex-1"
-                      />
-                      <Input
-                        type="number"
+                    min={7}
+                    max={90}
+                    step={1}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
                     value={settings.rampUpDays}
-                    onChange={(e) => setSettings(prev => ({ ...prev, rampUpDays: parseInt(e.target.value) }))}
-                        className="w-20"
-                        min={7}
-                        max={90}
-                      />
-                    </div>
+                    onChange={e => setSettings(prev => ({ ...prev, rampUpDays: parseInt(e.target.value) }))}
+                    className="w-20"
+                    min={7}
+                    max={90}
+                  />
+                </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   Number of days to reach target volume
-                    </p>
-                  </div>
-
+                </p>
+              </div>
               <div>
-                    <Label>Target Daily Volume</Label>
-                    <div className="flex items-center gap-4">
-                      <Slider
+                <Label>Target Daily Volume</Label>
+                <div className="flex items-center gap-4">
+                  <Slider
                     value={[settings.targetDailyVolume]}
                     onValueChange={([value]) => setSettings(prev => ({ ...prev, targetDailyVolume: value }))}
-                        min={20}
-                        max={200}
-                        step={5}
-                        className="flex-1"
-                      />
-                      <Input
-                        type="number"
+                    min={20}
+                    max={200}
+                    step={5}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
                     value={settings.targetDailyVolume}
-                    onChange={(e) => setSettings(prev => ({ ...prev, targetDailyVolume: parseInt(e.target.value) }))}
-                        className="w-20"
-                        min={20}
-                        max={200}
-                      />
-                    </div>
+                    onChange={e => setSettings(prev => ({ ...prev, targetDailyVolume: parseInt(e.target.value) }))}
+                    className="w-20"
+                    min={20}
+                    max={200}
+                  />
+                </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   Maximum number of emails to send per day
                 </p>
@@ -224,7 +245,6 @@ export default function WarmUpSettingsPage() {
             </div>
           </CardContent>
         </Card>
-
         {/* Schedule Settings */}
         <Card>
           <CardHeader>
@@ -240,26 +260,25 @@ export default function WarmUpSettingsPage() {
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Enable Schedule</Label>
-                    <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Send warm-up emails only during specific times
                 </p>
               </div>
               <Switch
                 checked={settings.schedule.enabled}
-                onCheckedChange={(checked) => setSettings(prev => ({
+                onCheckedChange={checked => setSettings(prev => ({
                   ...prev,
                   schedule: { ...prev.schedule, enabled: checked }
                 }))}
               />
             </div>
-
             {settings.schedule.enabled && (
               <>
                 <div className="space-y-4">
                   <div>
                     <Label>Days of Week</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2">
-                      {DAYS_OF_WEEK.map((day) => (
+                      {DAYS_OF_WEEK.map(day => (
                         <div key={day} className="flex items-center space-x-2">
                           <Checkbox
                             id={day}
@@ -276,13 +295,12 @@ export default function WarmUpSettingsPage() {
                       ))}
                     </div>
                   </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label>Start Time</Label>
                       <TimePicker
                         value={settings.schedule.startTime}
-                        onChange={(time) => setSettings(prev => ({
+                        onChange={time => setSettings(prev => ({
                           ...prev,
                           schedule: { ...prev.schedule, startTime: time }
                         }))}
@@ -292,7 +310,7 @@ export default function WarmUpSettingsPage() {
                       <Label>End Time</Label>
                       <TimePicker
                         value={settings.schedule.endTime}
-                        onChange={(time) => setSettings(prev => ({
+                        onChange={time => setSettings(prev => ({
                           ...prev,
                           schedule: { ...prev.schedule, endTime: time }
                         }))}
@@ -302,14 +320,10 @@ export default function WarmUpSettingsPage() {
                 </div>
               </>
             )}
-        </CardContent>
-      </Card>
-
+          </CardContent>
+        </Card>
         <div className="flex justify-end">
-          <Button
-            onClick={handleSave}
-            disabled={isLoading}
-          >
+          <Button onClick={handleSave} disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Settings
           </Button>

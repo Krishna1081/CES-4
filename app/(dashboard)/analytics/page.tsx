@@ -148,6 +148,16 @@ export default function AnalyticsPage() {
     )
   }
 
+  if (!analytics) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <div className="text-center">
+          <p className="text-muted-foreground">No analytics data available</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <div className="flex items-center justify-between mb-8">
@@ -202,7 +212,7 @@ export default function AnalyticsPage() {
                 className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
               >
                 <option value="">All Campaigns</option>
-                {analytics?.campaigns.map(campaign => (
+                {analytics?.campaigns?.map(campaign => (
                   <option key={campaign.id} value={campaign.id}>
                     {campaign.name}
                   </option>
@@ -218,7 +228,7 @@ export default function AnalyticsPage() {
                 className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
               >
                 <option value="">All Mailboxes</option>
-                {analytics?.mailboxes.map(mailbox => (
+                {analytics?.mailboxes?.map(mailbox => (
                   <option key={mailbox.id} value={mailbox.id}>
                     {mailbox.emailAddress}
                   </option>
@@ -251,7 +261,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatNumber(analytics?.overview.totalSent || 0)}
+              {formatNumber(analytics?.overview?.totalSent ?? 0)}
             </div>
             <p className="text-xs text-muted-foreground">
               Total emails delivered
@@ -266,10 +276,10 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatPercentage(analytics?.overview.openRate || 0)}
+              {formatPercentage(analytics?.overview?.openRate ?? 0)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {formatNumber(analytics?.overview.totalOpened || 0)} opens
+              {formatNumber(analytics?.overview?.totalOpened ?? 0)} opens
             </p>
           </CardContent>
         </Card>
@@ -281,10 +291,10 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatPercentage(analytics?.overview.clickRate || 0)}
+              {formatPercentage(analytics?.overview?.clickRate ?? 0)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {formatNumber(analytics?.overview.totalClicked || 0)} clicks
+              {formatNumber(analytics?.overview?.totalClicked ?? 0)} clicks
             </p>
           </CardContent>
         </Card>
@@ -296,10 +306,10 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatPercentage(analytics?.overview.replyRate || 0)}
+              {formatPercentage(analytics?.overview?.replyRate ?? 0)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {formatNumber(analytics?.overview.totalReplied || 0)} replies
+              {formatNumber(analytics?.overview?.totalReplied ?? 0)} replies
             </p>
           </CardContent>
         </Card>
@@ -316,7 +326,7 @@ export default function AnalyticsPage() {
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={analytics?.chartData.openRates}
+                  data={analytics?.chartData?.openRates ?? []}
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
@@ -354,7 +364,7 @@ export default function AnalyticsPage() {
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={analytics?.chartData.replyRates}
+                  data={analytics?.chartData?.replyRates ?? []}
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
@@ -394,7 +404,7 @@ export default function AnalyticsPage() {
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={analytics?.chartData.sentEmails}
+                data={analytics?.chartData?.sentEmails ?? []}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -563,7 +573,7 @@ export default function AnalyticsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {analytics?.campaigns.map((campaign) => (
+                  {analytics?.campaigns?.map((campaign) => (
                     <tr
                       key={campaign.id}
                       className="border-b hover:bg-gray-50 cursor-pointer"

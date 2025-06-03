@@ -15,6 +15,7 @@ import { signOut } from '@/app/(login)/actions';
 import { useRouter } from 'next/navigation';
 import { User } from '@/lib/db/schema';
 import useSWR from 'swr';
+import { Toaster } from "@/components/ui/sonner"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -135,6 +136,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <section className="flex flex-col min-h-screen">
       <Header />
       <Navigation />
+      <Toaster position="top-right" />
       {children}
     </section>
   );

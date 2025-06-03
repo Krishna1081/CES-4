@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db/drizzle'
-import { campaigns, organizations, lists, users } from '@/lib/db/schema'
+import { campaigns, organizations, lists, users, mailboxes } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { z } from 'zod'
 
@@ -65,6 +65,7 @@ const createCampaignSchema = z.object({
   goal: z.string().optional(),
   targetListId: z.number().optional(),
   status: z.enum(['draft', 'active', 'paused', 'completed']).default('draft'),
+  mailboxIds: z.array(z.number()).min(1, 'At least one mailbox must be selected')
 })
 
 // GET - Fetch all campaigns
@@ -100,6 +101,38 @@ export async function GET() {
   }
 }
 
+// GET - Fetch active mailboxes for campaign creation
+export async function GET_MAILBOXES() {
+  try {
+    const organizationId = await ensureDefaultOrganization()
+    
+    const activeMailboxes = await db
+      .select({
+        id: mailboxes.id,
+        emailAddress: mailboxes.emailAddress,
+        provider: mailboxes.provider,
+        status: mailboxes.status,
+        dailyLimit: mailboxes.dailyLimit
+      })
+      .from(mailboxes)
+      .where(
+        and(
+          eq(mailboxes.organizationId, organizationId),
+          eq(mailboxes.status, 'active')
+        )
+      )
+      .orderBy(mailboxes.emailAddress)
+    
+    return NextResponse.json(activeMailboxes)
+  } catch (error) {
+    console.error('Error fetching mailboxes:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch mailboxes' },
+      { status: 500 }
+    )
+  }
+}
+
 // POST - Create new campaign
 export async function POST(request: Request) {
   try {
@@ -125,6 +158,9 @@ export async function POST(request: Request) {
         status: validatedData.status,
         targetListId: validatedData.targetListId,
         createdAt: new Date(),
+        metadata: JSON.stringify({
+          mailboxIds: validatedData.mailboxIds
+        })
       })
       .returning()
     

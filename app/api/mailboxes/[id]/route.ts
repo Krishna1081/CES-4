@@ -200,4 +200,63 @@ export async function PATCH(
       { status: 500 }
     )
   }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getSession()
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userWithOrg = await getUserWithOrganization(session.user.id)
+    if (!userWithOrg?.organization) {
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get the mailbox to verify ownership
+    const mailbox = await db.query.mailboxes.findFirst({
+      where: eq(mailboxes.id, parseInt(params.id)),
+      columns: {
+        id: true,
+        organizationId: true
+      }
+    })
+
+    if (!mailbox) {
+      return NextResponse.json(
+        { error: 'Mailbox not found' },
+        { status: 404 }
+      )
+    }
+
+    // Verify the mailbox belongs to the user's organization
+    if (mailbox.organizationId !== userWithOrg.organization.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      )
+    }
+
+    // Delete the mailbox
+    await db.delete(mailboxes)
+      .where(eq(mailboxes.id, parseInt(params.id)))
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting mailbox:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete mailbox' },
+      { status: 500 }
+    )
+  }
 } 

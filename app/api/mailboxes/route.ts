@@ -114,6 +114,21 @@ export async function POST(req: Request) {
       throw error
     }
 
+    // Check if mailbox already exists
+    const existingMailbox = await db.query.mailboxes.findFirst({
+      where: eq(mailboxes.emailAddress, validatedData.email)
+    })
+
+    if (existingMailbox) {
+      return NextResponse.json(
+        { 
+          error: `Mailbox with email ${validatedData.email} already exists`,
+          code: 'DUPLICATE_MAILBOX'
+        },
+        { status: 409 } // 409 Conflict
+      )
+    }
+
     // Decrypt the password for testing connections
     const decryptedPassword = await decrypt(validatedData.authTokenEncrypted)
 
@@ -150,19 +165,20 @@ export async function POST(req: Request) {
       )
     }
 
-    // Create mailbox record with the already encrypted password
+    // Create mailbox record with the encrypted password stored in metadata
     const [mailbox] = await db.insert(mailboxes).values({
+      id: Math.floor(Math.random() * 1000000), // Generate a random ID
       userId: session.user.id,
       organizationId: userWithOrg.organization.id,
       emailAddress: validatedData.email,
       provider: validatedData.provider,
-      authTokenEncrypted: validatedData.authTokenEncrypted, // Use the already encrypted password
       status: 'active',
       dailyLimit: 100, // Default daily limit
       warmUpStatus: 'inactive',
       metadata: JSON.stringify({
         imap: validatedData.imap,
-        smtp: validatedData.smtp
+        smtp: validatedData.smtp,
+        authTokenEncrypted: validatedData.authTokenEncrypted
       })
     }).returning()
 

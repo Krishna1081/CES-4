@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 
 interface DNSRecord {
-  type: 'SPF' | 'DKIM' | 'DMARC'
+  type: 'SPF' | 'DMARC'
   status: 'valid' | 'invalid' | 'missing'
   value: string
   description: string
@@ -64,7 +64,7 @@ export default function DNSSettingsPage() {
       })
       if (!response.ok) throw new Error('Failed to check DNS records')
       const data = await response.json()
-      setRecords(data.records)
+      setRecords(data.records.filter((r: { type: string }) => r.type === 'SPF' || r.type === 'DMARC'))
     } catch (error) {
       console.error('Error checking DNS records:', error)
       toast.error('Failed to check DNS records')

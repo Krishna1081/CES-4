@@ -11,6 +11,7 @@ import {
   jsonb,
   primaryKey,
   pgEnum,
+  time,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -71,7 +72,10 @@ export const teamMembers = pgTable('team_members', {
 
 export const mailboxStatusEnum = pgEnum('mailbox_status', ['active', 'warning', 'error', 'inactive'])
 export const warmupStatusEnum = pgEnum('warmup_status', ['active', 'inactive', 'completed'])
-export const eventTypeEnum = pgEnum('event_type', ['reply', 'received'])
+export const eventTypeEnum = pgEnum('event_type', ['open', 'click', 'reply', 'received', 'bounce', 'unsubscribe'])
+
+export const dnsStatusEnum = pgEnum('dns_status', ['valid', 'invalid', 'not_found'])
+export const trackingStatusEnum = pgEnum('tracking_status', ['enabled', 'disabled'])
 
 export const mailboxes = pgTable('mailboxes', {
   id: bigint('id', { mode: 'number' }).primaryKey(),
@@ -89,6 +93,13 @@ export const mailboxes = pgTable('mailboxes', {
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
   metadata: text('metadata'),
+  signature: text('signature'),
+  trackingDomain: text('tracking_domain'),
+  trackingStatus: trackingStatusEnum('tracking_status').default('disabled'),
+  dnsStatus: dnsStatusEnum('dns_status').default('not_found'),
+  dnsRecords: jsonb('dns_records'),
+  lastSmtpUsed: timestamp('last_smtp_used'),
+  lastImapUsed: timestamp('last_imap_used')
 });
 
 export const domains = pgTable('domains', {
@@ -159,6 +170,7 @@ export const campaigns = pgTable('campaigns', {
   status: varchar('status', { length: 50 }).notNull(),
   targetListId: integer('target_list_id').references(() => lists.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  metadata: jsonb('metadata'),
 });
 
 export const sequences = pgTable('sequences', {
@@ -364,6 +376,31 @@ export const invitations = pgTable('invitations', {
   status: varchar('status', { length: 20 }).notNull().default('pending'),
 });
 
+export const warmupSchedules = pgTable('warmup_schedules', {
+  id: serial('id').primaryKey(),
+  mailboxId: bigint('mailbox_id', { mode: 'number' })
+    .notNull()
+    .references(() => mailboxes.id, { onDelete: 'cascade' }),
+  enabled: boolean('enabled').notNull().default(false),
+  daysOfWeek: text('days_of_week').array().notNull().default([]),
+  startTime: time('start_time').notNull(),
+  endTime: time('end_time').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow()
+})
+
+export const campaignConfigs = pgTable('campaign_configs', {
+  id: serial('id').primaryKey(),
+  mailboxId: bigint('mailbox_id', { mode: 'number' })
+    .notNull()
+    .references(() => mailboxes.id, { onDelete: 'cascade' }),
+  maxDailyEmails: integer('max_daily_emails').notNull().default(100),
+  enableSignature: boolean('enable_signature').notNull().default(true),
+  enableTracking: boolean('enable_tracking').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow()
+})
+
 export const usersRelations = relations(users, ({ many }) => ({
   teamMembers: many(teamMembers),
   invitationsSent: many(invitations),
@@ -411,6 +448,8 @@ export const mailboxesRelations = relations(mailboxes, ({ one, many }) => ({
   sentEmails: many(sentEmails),
   warmupSettings: many(warmupSettings),
   warmupInteractions: many(warmupInteractions),
+  warmupSchedule: one(warmupSchedules),
+  campaignConfig: one(campaignConfigs)
 }));
 
 export const contactsRelations = relations(contacts, ({ one, many }) => ({
@@ -617,6 +656,20 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   }),
 }));
 
+export const warmupSchedulesRelations = relations(warmupSchedules, ({ one }) => ({
+  mailbox: one(mailboxes, {
+    fields: [warmupSchedules.mailboxId],
+    references: [mailboxes.id]
+  })
+}))
+
+export const campaignConfigsRelations = relations(campaignConfigs, ({ one }) => ({
+  mailbox: one(mailboxes, {
+    fields: [campaignConfigs.mailboxId],
+    references: [mailboxes.id]
+  })
+}))
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Organization = typeof organizations.$inferSelect;
@@ -667,6 +720,10 @@ export type ActivityLog = typeof activityLogs.$inferSelect;
 export type NewActivityLog = typeof activityLogs.$inferInsert;
 export type Invitation = typeof invitations.$inferSelect;
 export type NewInvitation = typeof invitations.$inferInsert;
+export type WarmupSchedule = typeof warmupSchedules.$inferSelect
+export type NewWarmupSchedule = typeof warmupSchedules.$inferInsert
+export type CampaignConfig = typeof campaignConfigs.$inferSelect
+export type NewCampaignConfig = typeof campaignConfigs.$inferInsert
 
 export type TeamDataWithMembers = Team & {
   teamMembers: (TeamMember & {

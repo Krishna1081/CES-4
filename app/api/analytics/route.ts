@@ -59,15 +59,15 @@ export async function GET(request: Request) {
       .where(and(...conditions))
 
     const overview = {
-      totalSent: Number(overviewMetrics[0].totalSent),
-      totalOpened: Number(overviewMetrics[0].totalOpened),
-      totalClicked: Number(overviewMetrics[0].totalClicked),
-      totalReplied: Number(overviewMetrics[0].totalReplied),
-      openRate: overviewMetrics[0].totalSent ? 
+      totalSent: Number(overviewMetrics[0]?.totalSent || 0),
+      totalOpened: Number(overviewMetrics[0]?.totalOpened || 0),
+      totalClicked: Number(overviewMetrics[0]?.totalClicked || 0),
+      totalReplied: Number(overviewMetrics[0]?.totalReplied || 0),
+      openRate: overviewMetrics[0]?.totalSent ? 
         Number(overviewMetrics[0].totalOpened) / Number(overviewMetrics[0].totalSent) : 0,
-      clickRate: overviewMetrics[0].totalSent ? 
+      clickRate: overviewMetrics[0]?.totalSent ? 
         Number(overviewMetrics[0].totalClicked) / Number(overviewMetrics[0].totalSent) : 0,
-      replyRate: overviewMetrics[0].totalSent ? 
+      replyRate: overviewMetrics[0]?.totalSent ? 
         Number(overviewMetrics[0].totalReplied) / Number(overviewMetrics[0].totalSent) : 0,
       unsubscribeRate: 0 // TODO: Implement unsubscribe tracking
     }
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
         name: campaigns.name,
         status: campaigns.status,
         createdAt: campaigns.createdAt,
-        totalSent: count(),
+        totalSent: count(sentEmails.id),
         opened: count(
           sql`CASE WHEN ${emailEvents.type} = 'open' THEN 1 END`
         ),
@@ -93,7 +93,11 @@ export async function GET(request: Request) {
       .from(campaigns)
       .leftJoin(
         sentEmails,
-        eq(sentEmails.campaignId, campaigns.id)
+        and(
+          eq(sentEmails.campaignId, campaigns.id),
+          gte(sentEmails.sentAt, from),
+          lte(sentEmails.sentAt, to)
+        )
       )
       .leftJoin(
         emailEvents,
@@ -110,10 +114,10 @@ export async function GET(request: Request) {
       id: campaign.id,
       name: campaign.name,
       status: campaign.status,
-      totalSent: Number(campaign.totalSent),
-      opened: Number(campaign.opened),
-      clicked: Number(campaign.clicked),
-      replied: Number(campaign.replied),
+      totalSent: Number(campaign.totalSent || 0),
+      opened: Number(campaign.opened || 0),
+      clicked: Number(campaign.clicked || 0),
+      replied: Number(campaign.replied || 0),
       openRate: campaign.totalSent ? Number(campaign.opened) / Number(campaign.totalSent) : 0,
       clickRate: campaign.totalSent ? Number(campaign.clicked) / Number(campaign.totalSent) : 0,
       replyRate: campaign.totalSent ? Number(campaign.replied) / Number(campaign.totalSent) : 0,
@@ -152,16 +156,16 @@ export async function GET(request: Request) {
     const mailboxesWithMetrics = mailboxData.map(mailbox => ({
       id: mailbox.id,
       emailAddress: mailbox.emailAddress,
-      totalSent: Number(mailbox.totalSent),
+      totalSent: Number(mailbox.totalSent || 0),
       deliveryRate: mailbox.totalSent ? 
         Number(mailbox.delivered) / Number(mailbox.totalSent) : 0
     }))
 
     return NextResponse.json({
       overview,
-      campaigns: campaignsWithMetrics,
+      campaigns: campaignsWithMetrics || [],
       chartData,
-      mailboxes: mailboxesWithMetrics
+      mailboxes: mailboxesWithMetrics || []
     })
 
   } catch (error) {

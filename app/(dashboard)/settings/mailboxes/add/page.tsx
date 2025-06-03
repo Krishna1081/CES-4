@@ -214,6 +214,7 @@ export default function AddMailboxPage() {
       setError(error instanceof Error ? error.message : 'Failed to connect mailbox')
       toast.error('Failed to connect mailbox')
       console.error('Connection error:', error)
+      
     } finally {
       setIsLoading(false)
     }
@@ -320,7 +321,9 @@ export default function AddMailboxPage() {
       const results = {
         success: 0,
         failed: 0,
-        errors: [] as string[]
+        skipped: 0,
+        errors: [] as string[],
+        skippedEmails: [] as string[]
       }
 
       for (let i = 0; i < bulkMailboxes.length; i += batchSize) {
@@ -329,53 +332,121 @@ export default function AddMailboxPage() {
         // Process each mailbox in the batch
         await Promise.all(batch.map(async (mailbox) => {
           try {
-            // TODO: Replace with actual API call
-            // const response = await fetch('/api/mailboxes', {
-            //   method: 'POST',
-            //   headers: { 'Content-Type': 'application/json' },
-            //   body: JSON.stringify({
-            //     email: mailbox.email,
-            //     provider: 'custom',
-            //     authTokenEncrypted: mailbox.password, // This should be encrypted
-            //     imap: {
-            //       server: mailbox.imapServer,
-            //       port: parseInt(mailbox.imapPort),
-            //       security: mailbox.imapSecurity,
-            //       username: mailbox.imapUsername || mailbox.email
-            //     },
-            //     smtp: {
-            //       server: mailbox.smtpServer,
-            //       port: parseInt(mailbox.smtpPort),
-            //       security: mailbox.smtpSecurity,
-            //       username: mailbox.smtpUsername || mailbox.email,
-            //       requireAuth: mailbox.requireAuth
-            //     }
-            //   })
-            // })
+            // First encrypt the password
+            const encryptResponse = await fetch('/api/encrypt', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: mailbox.password })
+            })
 
-            // Simulate API call for now
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            if (!encryptResponse.ok) {
+              throw new Error('Failed to encrypt password')
+            }
+
+            const { encrypted } = await encryptResponse.json()
+
+            // Test IMAP connection first
+            const testResponse = await fetch('/api/mailboxes/test-connection', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: mailbox.email,
+                password: mailbox.password,
+                imap: {
+                  server: mailbox.imapServer,
+                  port: parseInt(mailbox.imapPort),
+                  security: mailbox.imapSecurity,
+                  username: mailbox.imapUsername || mailbox.email
+                },
+                smtp: {
+                  server: mailbox.smtpServer,
+                  port: parseInt(mailbox.smtpPort),
+                  security: mailbox.smtpSecurity,
+                  username: mailbox.smtpUsername || mailbox.email,
+                  requireAuth: mailbox.requireAuth
+                }
+              })
+            })
+
+            if (!testResponse.ok) {
+              const error = await testResponse.json()
+              throw new Error(`Connection test failed: ${error.error || 'Unknown error'}`)
+            }
+
+            // Now create the mailbox with the encrypted password
+            const response = await fetch('/api/mailboxes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: mailbox.email,
+                provider: 'custom',
+                authTokenEncrypted: encrypted,
+                imap: {
+                  server: mailbox.imapServer,
+                  port: parseInt(mailbox.imapPort),
+                  security: mailbox.imapSecurity,
+                  username: mailbox.imapUsername || mailbox.email
+                },
+                smtp: {
+                  server: mailbox.smtpServer,
+                  port: parseInt(mailbox.smtpPort),
+                  security: mailbox.smtpSecurity,
+                  username: mailbox.smtpUsername || mailbox.email,
+                  requireAuth: mailbox.requireAuth
+                }
+              })
+            })
+
+            if (!response.ok) {
+              const error = await response.json()
+              // Check if it's a duplicate error
+              if (error.error?.includes('duplicate key value violates unique constraint') || 
+                  error.error?.includes('already exists')) {
+                results.skipped++
+                results.skippedEmails.push(mailbox.email)
+                toast.info(`${mailbox.email} already exists`)
+                return
+              }
+              throw new Error(error.error || 'Failed to import mailbox')
+            }
             
             results.success++
           } catch (error) {
+            // Check if the error is from the response
+            if (error instanceof Error && error.message.includes('duplicate key value violates unique constraint')) {
+              results.skipped++
+              results.skippedEmails.push(mailbox.email)
+              return
+            }
             results.failed++
             results.errors.push(`${mailbox.email}: ${error instanceof Error ? error.message : 'Failed to import'}`)
           }
         }))
       }
 
+      // Show appropriate messages based on results
+      if (results.skipped > 0) {
+        toast.info(`${results.skipped} mailboxes skipped (already exist): ${results.skippedEmails.join(', ')}`)
+      }
+      
+      if (results.success > 0) {
+        toast.success(`Successfully imported ${results.success} mailboxes`)
+      }
+
       if (results.failed > 0) {
-        throw new Error(
+        toast.error(
           `Import completed with errors:\n` +
           `Successfully imported: ${results.success}\n` +
+          `Skipped (already exist): ${results.skipped}\n` +
           `Failed: ${results.failed}\n` +
           `Errors:\n${results.errors.join('\n')}`
         )
       }
 
-      toast.success(`Successfully imported ${results.success} mailboxes`)
       // Redirect to mailboxes list page after successful import
-      window.location.href = '/settings/mailboxes'
+      if (results.success > 0) {
+        window.location.href = '/settings/mailboxes'
+      }
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Failed to import mailboxes')
       toast.error('Failed to import mailboxes')
@@ -386,7 +457,7 @@ export default function AddMailboxPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-muted/10">
-      <div className="container max-w-4xl px-4 py-8">
+      <div className="container max-w-4xl py-8 mx-auto">
         <Card className="shadow-lg">
           <CardHeader className="space-y-1.5 pb-6">
             <div className="flex items-center justify-between">
